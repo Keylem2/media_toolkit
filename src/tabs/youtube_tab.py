@@ -237,7 +237,7 @@ class YouTubeTab(ctk.CTkFrame):
                     # Force this update to ensure "Processing..." shows immediately
                     self._update_progress(1.0, "Processing...", force=True)
 
-            # Base options – exactly like original, plus noplaylist and ffmpeg_location
+            # Base options – default yt-dlp options for this tab
             base_opts = {
                 "outtmpl": outtmpl,
                 "progress_hooks": [hook],
@@ -245,28 +245,6 @@ class YouTubeTab(ctk.CTkFrame):
                 "no_warnings": True,
                 "noplaylist": True,  # Prevent playlist downloads
             }
-
-            # If a cookies.txt file exists, use it to fix age/region/login‑gated
-            # videos that would otherwise 403. We check common locations:
-            #   - next to main.py (src/)
-            #   - project root (one level above src/)
-            try:
-                here = os.path.abspath(__file__)
-                app_root = os.path.dirname(os.path.dirname(here))       # .../src
-                proj_root = os.path.dirname(app_root)                   # project root
-
-                candidates = [
-                    os.path.join(app_root, "cookies.txt"),
-                    os.path.join(proj_root, "cookies.txt"),
-                ]
-
-                for cand in candidates:
-                    if os.path.isfile(cand):
-                        base_opts["cookiefile"] = cand
-                        break
-            except Exception:
-                # If anything goes wrong resolving cookies, just continue without them
-                pass
 
             # Tell yt-dlp where ffmpeg is (so it can merge high-quality streams)
             if self.ffmpeg_path:
@@ -336,8 +314,6 @@ class YouTubeTab(ctk.CTkFrame):
                     f.write(f"Format: {fmt}\n")
                     f.write(f"Quality: {quality}\n")
                     f.write(f"Output dir: {out_dir}\n")
-                    cookiefile = base_opts.get("cookiefile") if "base_opts" in locals() else None
-                    f.write(f"Cookiefile: {cookiefile}\n")
                     f.write("Exception:\n")
                     f.write("".join(traceback.format_exception(type(e), e, e.__traceback__)))
             except Exception:

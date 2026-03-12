@@ -2,5 +2,7 @@ dist/
 build/
 *.exe
 *.dll
-cookies.txt
+src/media_toolkit_log.txt
+src/tmp*.tmp
+src/tabs/__pycache__/
 

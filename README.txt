@@ -2,23 +2,27 @@
   MEDIA TOOLKIT
 ================================================================
 
-This folder has two things:
+Open‑source desktop app for downloading and processing media
+from YouTube, TikTok, and local files.
 
-  src/               <- SOURCE CODE (open this in Cursor to edit)
-  dist/MediaToolkit/ <- STANDALONE APP (copy this to your personal PC)
+CONTENTS (IN THIS REPO)
+----------------------------------------------------------------
 
+  src/        <- Source code (edit and run from here)
+  run.bat     <- Helper script to run from source on Windows
+  README.txt  <- This file
 
-FOR YOUR PERSONAL PC:
------------------------------------------------------
-  Copy "dist\MediaToolkit" folder to your PC.
-  Double-click "MediaToolkit.exe" inside it.
-  Nothing else needed.
+----------------------------------------------------------------
+RUN FROM SOURCE
+----------------------------------------------------------------
 
+1. Install Python 3.11+ on Windows and ensure "python" is on PATH.
+2. Clone this repo, then in a terminal:
 
-TO EDIT THE APP (in Cursor):
------------------------------------------------------
-  Open the "src" folder as your project in Cursor.
-  Edit the code, then run build.bat to rebuild the .exe.
+     cd media_toolkit/src
+     pip install -r requirements.txt
+     run python main.py
 
+3. Or from the project root you can use:
 
-================================================================
+     run.bat
