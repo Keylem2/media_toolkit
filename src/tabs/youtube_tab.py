@@ -3,6 +3,7 @@ import threading
 import os
 import sys
 import time
+import traceback
 from tkinter import filedialog, messagebox
 
 import yt_dlp
@@ -245,6 +246,28 @@ class YouTubeTab(ctk.CTkFrame):
                 "noplaylist": True,  # Prevent playlist downloads
             }
 
+            # If a cookies.txt file exists, use it to fix age/region/login‑gated
+            # videos that would otherwise 403. We check common locations:
+            #   - next to main.py (src/)
+            #   - project root (one level above src/)
+            try:
+                here = os.path.abspath(__file__)
+                app_root = os.path.dirname(os.path.dirname(here))       # .../src
+                proj_root = os.path.dirname(app_root)                   # project root
+
+                candidates = [
+                    os.path.join(app_root, "cookies.txt"),
+                    os.path.join(proj_root, "cookies.txt"),
+                ]
+
+                for cand in candidates:
+                    if os.path.isfile(cand):
+                        base_opts["cookiefile"] = cand
+                        break
+            except Exception:
+                # If anything goes wrong resolving cookies, just continue without them
+                pass
+
             # Tell yt-dlp where ffmpeg is (so it can merge high-quality streams)
             if self.ffmpeg_path:
                 if os.path.isabs(self.ffmpeg_path):
@@ -267,11 +290,13 @@ class YouTubeTab(ctk.CTkFrame):
                 res_map = {"2160p (4K)": "2160", "1440p": "1440", "1080p": "1080",
                            "720p": "720", "480p": "480", "360p": "360"}
                 res = res_map.get(quality, "1080")
-                # Original proven format string – prefers H.264 + AAC, falls back gracefully
+                # Prefer non-HLS MP4 streams first to avoid "file is empty"
+                # issues from some HLS-only variants.
                 opts = {
                     **base_opts,
                     "format": (
-                        f"bestvideo[height<={res}][vcodec^=avc1]+bestaudio[acodec^=mp4a]/"
+                        f"bestvideo[height<={res}][vcodec^=avc1][protocol!=m3u8][protocol!=http_dash_segments]+"
+                        f"bestaudio[acodec^=mp4a][protocol!=m3u8][protocol!=http_dash_segments]/"
                         f"bestvideo[height<={res}][vcodec^=avc1]+bestaudio/"
                         f"bestvideo[height<={res}]+bestaudio/"
                         f"best[height<={res}]"
@@ -285,6 +310,40 @@ class YouTubeTab(ctk.CTkFrame):
             self._show_success(f"Saved to:\n{out_dir}")
 
         except Exception as e:
+            # Log full error details for debugging
+            try:
+                here = os.path.abspath(__file__)
+                app_root = os.path.dirname(os.path.dirname(here))       # .../src
+                proj_root = os.path.dirname(app_root)                   # project root
+                log_candidates = [
+                    os.path.join(app_root, "media_toolkit_log.txt"),
+                    os.path.join(proj_root, "media_toolkit_log.txt"),
+                ]
+                log_path = log_candidates[0]
+                for cand in log_candidates:
+                    # Prefer a path that is writable; fall back to first if checks fail
+                    try:
+                        with open(cand, "a", encoding="utf-8") as _f:
+                            log_path = cand
+                        break
+                    except Exception:
+                        continue
+
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write("\n" + "=" * 60 + "\n")
+                    f.write(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"URL: {url}\n")
+                    f.write(f"Format: {fmt}\n")
+                    f.write(f"Quality: {quality}\n")
+                    f.write(f"Output dir: {out_dir}\n")
+                    cookiefile = base_opts.get("cookiefile") if "base_opts" in locals() else None
+                    f.write(f"Cookiefile: {cookiefile}\n")
+                    f.write("Exception:\n")
+                    f.write("".join(traceback.format_exception(type(e), e, e.__traceback__)))
+            except Exception:
+                # If logging fails, don't break the UI
+                pass
+
             self._show_error(str(e))
         finally:
             self._finish_download()

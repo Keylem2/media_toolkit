@@ -1,0 +1,116 @@
+
+============================================================
+Time: 2026-03-12 19:12:36
+URL: https://www.youtube.com/watch?v=MEHvMZH9GpU
+Format: mp4
+Quality: 1080p
+Output dir: C:\Users\Keylem\Downloads
+Cookiefile: C:\Users\Keylem\Documents\media_toolkit\media_toolkit\cookies.txt
+Exception:
+Traceback (most recent call last):
+  File "C:\Users\Keylem\Documents\media_toolkit\media_toolkit\src\tabs\youtube_tab.py", line 306, in _download
+    ydl.download([url])
+    ~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3662, in download
+    self.__download_wrapper(self.extract_info)(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        url, force_generic_extractor=self.params.get('force_generic_extractor', False))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3635, in wrapper
+    res = func(*args, **kwargs)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1685, in extract_info
+    return self.__extract_info(url, self.get_info_extractor(key), download, extra_info, process)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1696, in wrapper
+    return func(self, *args, **kwargs)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1852, in __extract_info
+    return self.process_ie_result(ie_result, download, extra_info)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1911, in process_ie_result
+    ie_result = self.process_video_result(ie_result, download=download)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3089, in process_video_result
+    self.process_info(new_info)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 189, in wrapper
+    return func(self, *args, **kwargs)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3536, in process_info
+    success, real_download = self.dl(temp_filename, info_dict)
+                             ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3278, in dl
+    return fd.download(name, new_info, subtitle)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\common.py", line 479, in download
+    ret = self.real_download(filename, info_dict)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\hls.py", line 409, in real_download
+    return self.download_and_append_fragments(ctx, fragments, info_dict)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\fragment.py", line 526, in download_and_append_fragments
+    return self._finish_frag_download(ctx, info_dict)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\fragment.py", line 300, in _finish_frag_download
+    self.report_error('The downloaded file is empty')
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1154, in report_error
+    self.trouble(f'{self._format_err("ERROR:", self.Styles.ERROR)} {message}', *args, **kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1093, in trouble
+    raise DownloadError(message, exc_info)
+yt_dlp.utils.DownloadError: [0;31mERROR:[0m The downloaded file is empty
+
+============================================================
+Time: 2026-03-12 19:14:21
+URL: https://www.youtube.com/watch?v=MEHvMZH9GpU
+Format: mp4
+Quality: 1080p
+Output dir: C:\Users\Keylem\Downloads
+Cookiefile: C:\Users\Keylem\Documents\media_toolkit\media_toolkit\cookies.txt
+Exception:
+Traceback (most recent call last):
+  File "C:\Users\Keylem\Documents\media_toolkit\media_toolkit\src\tabs\youtube_tab.py", line 308, in _download
+    ydl.download([url])
+    ~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3662, in download
+    self.__download_wrapper(self.extract_info)(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        url, force_generic_extractor=self.params.get('force_generic_extractor', False))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3635, in wrapper
+    res = func(*args, **kwargs)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1685, in extract_info
+    return self.__extract_info(url, self.get_info_extractor(key), download, extra_info, process)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1696, in wrapper
+    return func(self, *args, **kwargs)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1852, in __extract_info
+    return self.process_ie_result(ie_result, download, extra_info)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1911, in process_ie_result
+    ie_result = self.process_video_result(ie_result, download=download)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3089, in process_video_result
+    self.process_info(new_info)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 189, in wrapper
+    return func(self, *args, **kwargs)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3536, in process_info
+    success, real_download = self.dl(temp_filename, info_dict)
+                             ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 3278, in dl
+    return fd.download(name, new_info, subtitle)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\common.py", line 479, in download
+    ret = self.real_download(filename, info_dict)
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\hls.py", line 409, in real_download
+    return self.download_and_append_fragments(ctx, fragments, info_dict)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\fragment.py", line 526, in download_and_append_fragments
+    return self._finish_frag_download(ctx, info_dict)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\downloader\fragment.py", line 300, in _finish_frag_download
+    self.report_error('The downloaded file is empty')
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1154, in report_error
+    self.trouble(f'{self._format_err("ERROR:", self.Styles.ERROR)} {message}', *args, **kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Keylem\AppData\Roaming\Python\Python313\site-packages\yt_dlp\YoutubeDL.py", line 1093, in trouble
+    raise DownloadError(message, exc_info)
+yt_dlp.utils.DownloadError: [0;31mERROR:[0m The downloaded file is empty
