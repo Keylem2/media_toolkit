@@ -1,5 +1,6 @@
 dist/
 build/
+Output/
 *.exe
 *.dll
 src/media_toolkit_log.txt
