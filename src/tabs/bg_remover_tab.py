@@ -19,7 +19,11 @@ class BGRemoverTab(ctk.CTkFrame):
 
         title = ctk.CTkLabel(self, text="Background Remover", font=ctk.CTkFont(size=24, weight="bold"))
         title.grid(row=0, column=0, sticky="w", pady=(0, 4))
-        desc = ctk.CTkLabel(self, text="Remove image backgrounds locally (outputs PNG)", font=ctk.CTkFont(size=13), text_color="gray55")
+        desc = ctk.CTkLabel(
+            self,
+            text="Remove image backgrounds locally (outputs PNG)\nNote: First use requires downloading AI model (~170 MB)",
+            font=ctk.CTkFont(size=13), text_color="gray55"
+        )
         desc.grid(row=1, column=0, sticky="w", pady=(0, 18))
 
         # ── Buttons ──
@@ -95,14 +99,34 @@ class BGRemoverTab(ctk.CTkFrame):
         try:
             with open(self.input_path, "rb") as f:
                 data = f.read()
-            out = remove(data)
+            
+            # Attempt background removal with progress feedback
+            self.status.configure(text="Loading AI model... (~170 MB on first run)")
+            try:
+                out = remove(data)
+            except Exception as model_error:
+                error_msg = str(model_error).lower()
+                if "download" in error_msg or "url" in error_msg or "network" in error_msg or "connection" in error_msg:
+                    raise RuntimeError(
+                        "Failed to download AI model (170 MB). "
+                        "Please ensure internet connection for first-time setup.\n"
+                        f"Error: {model_error}"
+                    )
+                raise
+            
+            if out is None:
+                raise RuntimeError(
+                    "Background removal returned empty result. "
+                    "This may be due to missing AI model or incompatible image format."
+                )
+            
             self.result_image = Image.open(io.BytesIO(out)).convert("RGBA")
             self._show_preview(self.result_image, self.result_preview)
             self.save_btn.configure(state="normal")
             self.status.configure(text="Background removed!")
         except Exception as e:
             self.status.configure(text=f"Error: {e}")
-            messagebox.showerror("Error", str(e))
+            messagebox.showerror("Background Removal Error", str(e))
         finally:
             self.remove_btn.configure(state="normal", text="Remove Background")
 

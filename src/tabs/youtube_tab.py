@@ -268,15 +268,14 @@ class YouTubeTab(ctk.CTkFrame):
                 res_map = {"2160p (4K)": "2160", "1440p": "1440", "1080p": "1080",
                            "720p": "720", "480p": "480", "360p": "360"}
                 res = res_map.get(quality, "1080")
-                # Prefer non-HLS MP4 streams first to avoid "file is empty"
-                # issues from some HLS-only variants.
+                # Force H.264 (avc1) for maximum compatibility with Windows Movies & TV
                 opts = {
                     **base_opts,
                     "format": (
                         f"bestvideo[height<={res}][vcodec^=avc1][protocol!=m3u8][protocol!=http_dash_segments]+"
                         f"bestaudio[acodec^=mp4a][protocol!=m3u8][protocol!=http_dash_segments]/"
                         f"bestvideo[height<={res}][vcodec^=avc1]+bestaudio/"
-                        f"bestvideo[height<={res}]+bestaudio/"
+                        f"bestvideo[height<={res}][vcodec^=avc1]/"
                         f"best[height<={res}]"
                     ),
                     "merge_output_format": "mp4",

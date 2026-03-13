@@ -263,20 +263,28 @@ class TikTokTab(ctk.CTkFrame):
                 # No early finish call - let finally handle it
                 return
 
-            # --- MP4 download with robust format selection ---
+            # --- MP4 download with H.264 forced for compatibility ---
             height = quality.replace("p", "")
+            # Force H.264 (avc1) codec - falls back to best available if not found
             format_spec = (
+                f"bv*[height<={height}][vcodec^=avc1][has_watermark=false]+ba[acodec^=mp4a]/"
                 f"b[height<={height}][vcodec^=avc1][has_watermark=false]/"
                 f"b[height<={height}][has_watermark=false]/"
-                f"bv*[height<={height}][vcodec^=avc1][has_watermark=false]+ba[acodec^=mp4a]/"
-                f"bv*[height<={height}][has_watermark=false]+ba/"
+                f"bv*[height<={height}][vcodec^=avc1]+ba/"
                 f"b[height<={height}][vcodec^=avc1]/"
+                f"b[height<={height}]/"
                 f"b"
             )
             opts = {
                 **base_opts,
                 "format": format_spec,
                 "merge_output_format": "mp4",
+                # Add postprocessor to ensure H.264 output even if source is different
+                "postprocessors": [{
+                    "key": "FFmpegVideoConvertor",
+                    "preferedformat": "mp4",
+                    "when": "downloading"
+                }],
             }
 
             with yt_dlp.YoutubeDL(opts) as ydl:

@@ -2,7 +2,9 @@ import customtkinter as ctk
 import threading
 import subprocess
 import os
+import sys
 import json
+import shutil
 from tkinter import filedialog, messagebox
 
 
@@ -13,6 +15,9 @@ class VideoCompressorTab(ctk.CTkFrame):
 
         self.input_path = None
         self.duration = None
+
+        self.ffmpeg_path = self._find_executable("ffmpeg") or "ffmpeg"
+        self.ffprobe_path = self._find_executable("ffprobe") or "ffprobe"
 
         title = ctk.CTkLabel(self, text="Video Compressor", font=ctk.CTkFont(size=24, weight="bold"))
         title.grid(row=0, column=0, sticky="w", pady=(0, 4))
@@ -83,10 +88,28 @@ class VideoCompressorTab(ctk.CTkFrame):
 
     # ── helpers ──
 
+    def _find_executable(self, name):
+        candidates = []
+        if getattr(sys, 'frozen', False):
+            exe_dir = os.path.dirname(sys.executable)
+            candidates.append(os.path.join(exe_dir, f"{name}.exe"))
+            candidates.append(os.path.join(exe_dir, "_internal", f"{name}.exe"))
+            if hasattr(sys, '_MEIPASS'):
+                meipass_dir = sys._MEIPASS
+                candidates.append(os.path.join(meipass_dir, f"{name}.exe"))
+                candidates.append(os.path.join(os.path.dirname(meipass_dir), "_internal", f"{name}.exe"))
+        else:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            candidates.append(os.path.join(script_dir, f"{name}.exe"))
+        for cand in candidates:
+            if os.path.isfile(cand):
+                return cand
+        return shutil.which(name)
+
     def _get_duration(self, path):
         try:
             r = subprocess.run(
-                ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
+                [self.ffprobe_path, "-v", "quiet", "-print_format", "json", "-show_format", path],
                 capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW,
             )
             return float(json.loads(r.stdout)["format"]["duration"])
@@ -162,7 +185,7 @@ class VideoCompressorTab(ctk.CTkFrame):
             self.progress.set(0.15)
             p1 = subprocess.run(
                 [
-                    "ffmpeg", "-y", "-i", self.input_path,
+                    self.ffmpeg_path, "-y", "-i", self.input_path,
                     "-c:v", "libx264", "-b:v", str(video_bitrate),
                     "-pass", "1", "-passlogfile", passlog,
                     "-an", "-f", "null", null_target,
@@ -177,7 +200,7 @@ class VideoCompressorTab(ctk.CTkFrame):
             self.progress.set(0.55)
             p2 = subprocess.run(
                 [
-                    "ffmpeg", "-y", "-i", self.input_path,
+                    self.ffmpeg_path, "-y", "-i", self.input_path,
                     "-c:v", "libx264", "-b:v", str(video_bitrate),
                     "-pass", "2", "-passlogfile", passlog,
                     "-c:a", "aac", "-b:a", "128k",

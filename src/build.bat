@@ -11,6 +11,7 @@ python -m PyInstaller ^
     --noconfirm ^
     --windowed ^
     --name "MediaToolkit" ^
+    --icon "media_toolkit.ico" ^
     --distpath "..\dist" ^
     --workpath "..\build" ^
     --collect-all customtkinter ^
@@ -33,14 +34,20 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Copy FFmpeg into the dist folder
-echo Bundling FFmpeg...
+:: Copy FFmpeg and ALL its DLLs into the dist folder
+echo Bundling FFmpeg (exe + DLLs)...
 where ffmpeg >nul 2>&1
 if %errorlevel% equ 0 (
-    copy /Y "$(where ffmpeg)" "..\dist\MediaToolkit\" >nul 2>&1
-    copy /Y "$(where ffprobe)" "..\dist\MediaToolkit\" >nul 2>&1
-    for /f "tokens=*" %%i in ('where ffmpeg') do copy /Y "%%i" "..\dist\MediaToolkit\" >nul
-    for /f "tokens=*" %%i in ('where ffprobe') do copy /Y "%%i" "..\dist\MediaToolkit\" >nul
+    for /f "tokens=*" %%i in ('where ffmpeg') do (
+        echo Found ffmpeg at: %%i
+        for %%D in ("%%~dpi.") do (
+            echo Copying all files from: %%~fD
+            copy /Y "%%~fD\*.exe" "..\dist\MediaToolkit\" >nul
+            copy /Y "%%~fD\*.dll" "..\dist\MediaToolkit\" >nul
+        )
+    )
+) else (
+    echo [WARNING] FFmpeg not found on PATH. Video merging/compression will not work.
 )
 
 echo.
