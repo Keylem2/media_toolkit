@@ -258,8 +258,21 @@ class TikTokTab(ctk.CTkFrame):
                     }],
                 }
                 with yt_dlp.YoutubeDL(opts) as ydl:
+                    # Get info to find filename
+                    info = ydl.extract_info(url, download=False)
+                    title = info.get('title', 'video')
+                    video_id = info.get('id', '')
+                    safe_title = "".join(c for c in title if c.isalnum() or c in " ._-").rstrip()
+                    expected_file = os.path.join(out_dir, f"{safe_title}_{video_id}.mp3")
+                    final_file = unique_filename(expected_file)
+                    
                     ydl.download([url])
-                self._show_success(f"Saved to:\n{out_dir}")
+                    
+                    # Rename if needed
+                    if final_file != expected_file and os.path.exists(expected_file):
+                        os.rename(expected_file, final_file)
+                
+                self._show_success(f"Saved to:\n{os.path.dirname(final_file)}")
                 # No early finish call - let finally handle it
                 return
 
@@ -279,14 +292,18 @@ class TikTokTab(ctk.CTkFrame):
                 **base_opts,
                 "format": format_spec,
                 "merge_output_format": "mp4",
-                # Add postprocessor to ensure H.264 output even if source is different
-                "postprocessors": [{
-                    "key": "FFmpegVideoConvertor",
-                    "preferedformat": "mp4",
-                    "when": "downloading"
-                }],
             }
 
+            # Helper to generate unique filename if already exists
+            def unique_filename(path):
+                if not os.path.exists(path):
+                    return path
+                base, ext = os.path.splitext(path)
+                counter = 1
+                while os.path.exists(f"{base} ({counter}){ext}"):
+                    counter += 1
+                return f"{base} ({counter}){ext}"
+            
             with yt_dlp.YoutubeDL(opts) as ydl:
                 # Extract info to get the final filename
                 info = ydl.extract_info(url, download=True)
@@ -303,6 +320,13 @@ class TikTokTab(ctk.CTkFrame):
                 safe_title = "".join(c for c in title if c.isalnum() or c in " ._-").rstrip()
                 filename = f"{safe_title}_{video_id}.mp4"
                 downloaded_file = os.path.join(out_dir, filename)
+            
+            # Handle duplicate filenames - rename if already exists with different path
+            if downloaded_file and os.path.exists(downloaded_file):
+                unique_path = unique_filename(downloaded_file)
+                if unique_path != downloaded_file:
+                    os.rename(downloaded_file, unique_path)
+                    downloaded_file = unique_path
 
             # Verify file exists, else try to find by video_id
             if not os.path.exists(downloaded_file):

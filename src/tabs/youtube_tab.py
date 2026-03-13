@@ -219,8 +219,18 @@ class YouTubeTab(ctk.CTkFrame):
             quality = self.quality_var.get()
             out_dir = self.output_var.get()
 
-            # Use template with video ID to avoid overwrites
+            # Use template with video ID, add counter if file already exists
             outtmpl = os.path.join(out_dir, "%(title)s_%(id)s.%(ext)s")
+            
+            # Helper to generate unique filename if already exists
+            def unique_filename(path):
+                if not os.path.exists(path):
+                    return path
+                base, ext = os.path.splitext(path)
+                counter = 1
+                while os.path.exists(f"{base} ({counter}){ext}"):
+                    counter += 1
+                return f"{base} ({counter}){ext}"
 
             # Progress hook (thread-safe, throttled)
             def hook(d):
@@ -282,9 +292,27 @@ class YouTubeTab(ctk.CTkFrame):
                 }
 
             with yt_dlp.YoutubeDL(opts) as ydl:
+                # Extract info first to know the filename
+                info = ydl.extract_info(url, download=False)
+                title = info.get('title', 'video')
+                video_id = info.get('id', '')
+                safe_title = "".join(c for c in title if c.isalnum() or c in " ._-").rstrip()
+                
+                # Determine expected filename
+                ext = "mp3" if fmt == "mp3" else "mp4"
+                expected_file = os.path.join(out_dir, f"{safe_title}_{video_id}.{ext}")
+                
+                # Check if file exists and generate unique name
+                final_file = unique_filename(expected_file)
+                
+                # If different, temporarily rename after download
                 ydl.download([url])
-
-            self._show_success(f"Saved to:\n{out_dir}")
+                
+                # Rename if needed to avoid overwrite
+                if final_file != expected_file and os.path.exists(expected_file):
+                    os.rename(expected_file, final_file)
+            
+            self._show_success(f"Saved to:\n{os.path.dirname(final_file)}")
 
         except Exception as e:
             # Log full error details for debugging

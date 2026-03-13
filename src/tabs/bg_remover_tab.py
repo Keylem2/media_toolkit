@@ -21,8 +21,8 @@ class BGRemoverTab(ctk.CTkFrame):
         title.grid(row=0, column=0, sticky="w", pady=(0, 4))
         desc = ctk.CTkLabel(
             self,
-            text="Remove image backgrounds locally (outputs PNG)\nNote: First use requires downloading AI model (~170 MB)",
-            font=ctk.CTkFont(size=13), text_color="gray55"
+            text="Remove image backgrounds locally (outputs PNG)\n⚠ INTERNET REQUIRED: First use downloads AI model (~170 MB)",
+            font=ctk.CTkFont(size=13), text_color="orange"
         )
         desc.grid(row=1, column=0, sticky="w", pady=(0, 18))
 

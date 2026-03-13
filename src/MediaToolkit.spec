@@ -2,7 +2,7 @@
 from PyInstaller.utils.hooks import collect_all
 from PyInstaller.utils.hooks import copy_metadata
 
-datas = []
+datas = [('media_toolkit.ico', '.')]
 binaries = []
 hiddenimports = ['PIL', 'PIL._tkinter_finder', 'yt_dlp', 'scipy', 'skimage', 'numba']
 datas += copy_metadata('pymatting')

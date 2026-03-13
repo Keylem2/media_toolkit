@@ -25,6 +25,7 @@ python -m PyInstaller ^
     --hidden-import=scipy ^
     --hidden-import=skimage ^
     --hidden-import=numba ^
+    --add-data "media_toolkit.ico;." ^
     main.py
 
 if %errorlevel% neq 0 (

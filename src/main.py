@@ -19,9 +19,29 @@ class MediaToolkit(ctk.CTk):
         self.title("Media Toolkit")
         self.geometry("1000x660")
         self.minsize(960, 620)
+        
+        # Set window icon for taskbar and title bar
+        self._set_window_icon()
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+    
+    def _set_window_icon(self):
+        """Set the window icon for taskbar and title bar."""
+        try:
+            if getattr(sys, 'frozen', False):
+                # Running as PyInstaller bundle
+                base_path = sys._MEIPASS
+            else:
+                # Running from source
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            icon_path = os.path.join(base_path, "media_toolkit.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+        except Exception:
+            # If icon fails to load, app still works
+            pass
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
