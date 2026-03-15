@@ -63,6 +63,15 @@ from tabs.video_compressor_tab import VideoCompressorTab
 from tabs.image_compressor_tab import ImageCompressorTab
 
 
+def _icon_path():
+    """Path to the app icon (works when run from source or from PyInstaller bundle)."""
+    if getattr(sys, "frozen", False):
+        base = sys._MEIPASS
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "media_toolkit.ico")
+
+
 class MediaToolkit(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -70,6 +79,8 @@ class MediaToolkit(ctk.CTk):
         self.title("Media Toolkit")
         self.geometry("1000x660")
         self.minsize(960, 620)
+
+        self._set_window_icon()
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
@@ -144,6 +155,37 @@ class MediaToolkit(ctk.CTk):
 
         self.current_tab_idx = -1
         self.select_tab(0)
+
+    def _set_window_icon(self):
+        """Set the window title bar icon (taskbar uses .exe icon; title bar needs this)."""
+        try:
+            path = _icon_path()
+            if not os.path.isfile(path):
+                return
+            self._do_set_icon(path)
+            # CustomTkinter can overwrite icon after init; re-apply after a short delay
+            self.after(250, self._apply_icon)
+        except Exception:
+            pass
+
+    def _do_set_icon(self, path):
+        """Set icon using iconbitmap or raw wm command (CTk can break iconbitmap on some setups)."""
+        try:
+            self.iconbitmap(path)
+        except Exception:
+            try:
+                self.tk.call("wm", "iconbitmap", self._w, path)
+            except Exception:
+                pass
+
+    def _apply_icon(self):
+        """Re-apply icon after CTk may have set its default."""
+        try:
+            path = _icon_path()
+            if os.path.isfile(path):
+                self._do_set_icon(path)
+        except Exception:
+            pass
 
     def select_tab(self, index):
         if index == self.current_tab_idx:

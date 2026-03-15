@@ -4,7 +4,8 @@ Output/
 *.exe
 *.dll
 src/media_toolkit_log.txt
-src/tabs/__pycache__/
+__pycache__/
+*.pyc
 src/media_toolkit.png
 src/media_toolkit.ico
 src/MediaToolkit.spec
