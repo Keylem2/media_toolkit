@@ -21,13 +21,10 @@ Open-source desktop app for downloading and processing media from YouTube, TikTo
 |------|----------------|
 | **YouTube Converter** | Download videos or audio (MP4 / MP3), choose quality |
 | **TikTok Converter** | Download TikTok videos (always best quality, H.264) or MP3 (320 kbps) |
-| **Background Remover** | Remove image backgrounds using AI *(first use downloads a model; internet required)* — Clear button to reset and load another image |
-| **Video Compressor** | Compress videos to a target file size |
+| **Background Remover** | Remove image backgrounds using AI *(first use downloads a model; internet required)* — Clear to reset and load another image |
+| **Video Compressor** | Compress videos to a target file size (two-pass encoding for accurate size) |
 | **Image Compressor** | Compress images with adjustable quality |
-
-- **Settings** (sidebar): set a **default output folder** for all tools, switch **theme** (Dark / Light / System), and **check for updates** from GitHub.
-- Output folders are set via **Browse** only; default is your Downloads folder (or the folder you set in Settings).
-- All in one modern desktop UI.
+| **Settings** | Default output folder (editable + Browse), theme (Dark / Light / System), Check for updates, Save |
 
 ---
 
@@ -53,7 +50,7 @@ If you want to hack on the code or run without installing:
 
 ## Repo contents
 
-- **`src/`** — Source code (main app and tabs)
+- **`src/`** — Source code (main app, tabs, and settings). The app creates `settings.json` in `src/` when run from source (or in AppData when installed) when you save Settings; it is not required in the repo.
 - **`run.bat`** — Run the app from source on Windows
 - **`README.md`** — This file
 

@@ -10,6 +10,8 @@ FILES:
   tabs/bg_remover_tab.py         - Background Remover feature
   tabs/video_compressor_tab.py   - Video Compressor feature
   tabs/image_compressor_tab.py   - Image Compressor feature
+  tabs/settings_tab.py           - Settings (default output folder, theme, updates)
+  settings.py                    - Load/save app settings (writes settings.json at runtime)
   requirements.txt               - Python dependencies
 
 SCRIPTS (for devs):
