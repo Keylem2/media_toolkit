@@ -8,6 +8,11 @@ from tkinter import filedialog, messagebox
 
 import yt_dlp
 
+try:
+    import settings as app_settings
+except ImportError:
+    app_settings = None
+
 
 class TikTokTab(ctk.CTkFrame):
     def __init__(self, parent):
@@ -43,52 +48,34 @@ class TikTokTab(ctk.CTkFrame):
         )
         self.url_entry.grid(row=3, column=0, sticky="ew", pady=(0, 16))
 
-        # Format + Quality row
+        # Format (TikTok always downloads highest quality; no quality selector)
         options_frame = ctk.CTkFrame(self, fg_color="transparent")
         options_frame.grid(row=4, column=0, sticky="ew", pady=(0, 16))
-        options_frame.grid_columnconfigure((0, 1), weight=1)
-
-        # Format
-        fmt_container = ctk.CTkFrame(options_frame, fg_color="transparent")
-        fmt_container.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        ctk.CTkLabel(fmt_container, text="Format", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(0, 6))
-
-        self.format_var = ctk.StringVar(value="mp4")
-        fmt_btn_frame = ctk.CTkFrame(fmt_container, fg_color="transparent")
+        options_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(options_frame, text="Format", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(0, 6))
+        fmt_btn_frame = ctk.CTkFrame(options_frame, fg_color="transparent")
         fmt_btn_frame.pack(anchor="w")
+        self.format_var = ctk.StringVar(value="mp4")
         self.mp4_radio = ctk.CTkRadioButton(
-            fmt_btn_frame, text="MP4 (Video)", variable=self.format_var,
-            value="mp4", command=self._update_quality, font=ctk.CTkFont(size=13),
+            fmt_btn_frame, text="MP4 (Video) – best quality", variable=self.format_var,
+            value="mp4", font=ctk.CTkFont(size=13),
         )
         self.mp4_radio.pack(side="left", padx=(0, 20))
         self.mp3_radio = ctk.CTkRadioButton(
-            fmt_btn_frame, text="MP3 (Audio)", variable=self.format_var,
-            value="mp3", command=self._update_quality, font=ctk.CTkFont(size=13),
+            fmt_btn_frame, text="MP3 (Audio) – 320 kbps", variable=self.format_var,
+            value="mp3", font=ctk.CTkFont(size=13),
         )
         self.mp3_radio.pack(side="left")
 
-        # Quality
-        qual_container = ctk.CTkFrame(options_frame, fg_color="transparent")
-        qual_container.grid(row=0, column=1, sticky="ew", padx=(10, 0))
-        ctk.CTkLabel(qual_container, text="Quality", font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w", pady=(0, 6))
-
-        self.quality_var = ctk.StringVar(value="1080p")
-        self.quality_menu = ctk.CTkOptionMenu(
-            qual_container, variable=self.quality_var,
-            values=["1080p", "720p", "480p", "360p"],
-            height=34, font=ctk.CTkFont(size=13),
-        )
-        self.quality_menu.pack(anchor="w", fill="x")
-
-        # Output folder
+        # Output folder (read-only display, change via Browse only)
         ctk.CTkLabel(self, text="Output Folder", font=ctk.CTkFont(size=13, weight="bold")).grid(row=5, column=0, sticky="w", pady=(0, 4))
         out_frame = ctk.CTkFrame(self, fg_color="transparent")
         out_frame.grid(row=6, column=0, sticky="ew", pady=(0, 20))
         out_frame.grid_columnconfigure(0, weight=1)
-
-        self.output_var = ctk.StringVar(value=os.path.join(os.path.expanduser("~"), "Downloads"))
-        self.output_entry = ctk.CTkEntry(out_frame, textvariable=self.output_var, height=36, font=ctk.CTkFont(size=12))
-        self.output_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        default_out = app_settings.get_default_output_folder() if app_settings else os.path.join(os.path.expanduser("~"), "Downloads")
+        self.output_var = ctk.StringVar(value=default_out)
+        self.output_label = ctk.CTkLabel(out_frame, text=self._truncate_path(default_out), height=36, font=ctk.CTkFont(size=12), anchor="w")
+        self.output_label.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         ctk.CTkButton(out_frame, text="Browse", width=90, height=36, command=self._browse).grid(row=0, column=1)
 
         # Download button
@@ -159,19 +146,17 @@ class TikTokTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _update_quality(self):
-        if self.format_var.get() == "mp3":
-            vals = ["320 kbps", "256 kbps", "192 kbps", "128 kbps"]
-            self.quality_var.set("320 kbps")
-        else:
-            vals = ["1080p", "720p", "480p", "360p"]
-            self.quality_var.set("1080p")
-        self.quality_menu.configure(values=vals)
+    @staticmethod
+    def _truncate_path(path, max_len=48):
+        if len(path) <= max_len:
+            return path
+        return path[: max_len - 3] + "..."
 
     def _browse(self):
-        d = filedialog.askdirectory()
+        d = filedialog.askdirectory(initialdir=self.output_var.get())
         if d:
             self.output_var.set(d)
+            self.output_label.configure(text=self._truncate_path(d))
 
     def _start_download(self):
         url = self.url_entry.get().strip()
@@ -219,7 +204,6 @@ class TikTokTab(ctk.CTkFrame):
     def _download(self, url):
         try:
             fmt = self.format_var.get()
-            quality = self.quality_var.get()
             out_dir = self.output_var.get()
             # Use a temporary filename with a placeholder to avoid collisions
             temp_template = os.path.join(out_dir, "%(title)s_%(id)s.%(ext)s")
@@ -247,14 +231,13 @@ class TikTokTab(ctk.CTkFrame):
                 base_opts["ffmpeg_location"] = ffmpeg_location
 
             if fmt == "mp3":
-                bitrate = quality.split()[0]
                 opts = {
                     **base_opts,
                     "format": "ba[has_watermark=false]/ba",
                     "postprocessors": [{
                         "key": "FFmpegExtractAudio",
                         "preferredcodec": "mp3",
-                        "preferredquality": bitrate,
+                        "preferredquality": "320",
                     }],
                 }
                 with yt_dlp.YoutubeDL(opts) as ydl:
@@ -276,17 +259,16 @@ class TikTokTab(ctk.CTkFrame):
                 # No early finish call - let finally handle it
                 return
 
-            # --- MP4 download with H.264 forced for compatibility ---
-            height = quality.replace("p", "")
-            # Force H.264 (avc1) codec - falls back to best available if not found
+            # --- MP4 download: always best quality, H.264 for compatibility ---
+            # Prefer up to 2160p (4K) H.264, no watermark
             format_spec = (
-                f"bv*[height<={height}][vcodec^=avc1][has_watermark=false]+ba[acodec^=mp4a]/"
-                f"b[height<={height}][vcodec^=avc1][has_watermark=false]/"
-                f"b[height<={height}][has_watermark=false]/"
-                f"bv*[height<={height}][vcodec^=avc1]+ba/"
-                f"b[height<={height}][vcodec^=avc1]/"
-                f"b[height<={height}]/"
-                f"b"
+                "bv*[height<=2160][vcodec^=avc1][has_watermark=false]+ba[acodec^=mp4a]/"
+                "b[height<=2160][vcodec^=avc1][has_watermark=false]/"
+                "b[height<=2160][has_watermark=false]/"
+                "bv*[height<=2160][vcodec^=avc1]+ba/"
+                "b[height<=2160][vcodec^=avc1]/"
+                "b[height<=2160]/"
+                "b"
             )
             opts = {
                 **base_opts,

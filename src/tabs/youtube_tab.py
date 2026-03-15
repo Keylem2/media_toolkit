@@ -8,6 +8,11 @@ from tkinter import filedialog, messagebox
 
 import yt_dlp
 
+try:
+    import settings as app_settings
+except ImportError:
+    app_settings = None
+
 
 class YouTubeTab(ctk.CTkFrame):
     def __init__(self, parent):
@@ -74,15 +79,15 @@ class YouTubeTab(ctk.CTkFrame):
         )
         self.quality_menu.pack(anchor="w", fill="x")
 
-        # Output folder
+        # Output folder (read-only display, change via Browse only)
         ctk.CTkLabel(self, text="Output Folder", font=ctk.CTkFont(size=13, weight="bold")).grid(row=5, column=0, sticky="w", pady=(0, 4))
         out_frame = ctk.CTkFrame(self, fg_color="transparent")
         out_frame.grid(row=6, column=0, sticky="ew", pady=(0, 20))
         out_frame.grid_columnconfigure(0, weight=1)
-
-        self.output_var = ctk.StringVar(value=os.path.join(os.path.expanduser("~"), "Downloads"))
-        self.output_entry = ctk.CTkEntry(out_frame, textvariable=self.output_var, height=36, font=ctk.CTkFont(size=12))
-        self.output_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        default_out = app_settings.get_default_output_folder() if app_settings else os.path.join(os.path.expanduser("~"), "Downloads")
+        self.output_var = ctk.StringVar(value=default_out)
+        self.output_label = ctk.CTkLabel(out_frame, text=self._truncate_path(default_out), height=36, font=ctk.CTkFont(size=12), anchor="w")
+        self.output_label.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         ctk.CTkButton(out_frame, text="Browse", width=90, height=36, command=self._browse).grid(row=0, column=1)
 
         # Download button
@@ -156,10 +161,17 @@ class YouTubeTab(ctk.CTkFrame):
             self.quality_var.set("1080p")
         self.quality_menu.configure(values=vals, state="normal")
 
+    @staticmethod
+    def _truncate_path(path, max_len=48):
+        if len(path) <= max_len:
+            return path
+        return path[: max_len - 3] + "..."
+
     def _browse(self):
-        d = filedialog.askdirectory()
+        d = filedialog.askdirectory(initialdir=self.output_var.get())
         if d:
             self.output_var.set(d)
+            self.output_label.configure(text=self._truncate_path(d))
 
     def _start_download(self):
         url = self.url_entry.get().strip()

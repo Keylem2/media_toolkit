@@ -40,6 +40,13 @@ class BGRemoverTab(ctk.CTkFrame):
         )
         self.remove_btn.pack(side="left", padx=(0, 8))
 
+        self.clear_btn = ctk.CTkButton(
+            btn_frame, text="Clear", height=40, width=80,
+            command=self._clear, fg_color=("gray75", "gray28"),
+            hover_color=("gray65", "gray35"),
+        )
+        self.clear_btn.pack(side="left", padx=(0, 8))
+
         self.save_btn = ctk.CTkButton(
             btn_frame, text="Save PNG", height=40, width=120,
             command=self._save, state="disabled",
@@ -75,6 +82,21 @@ class BGRemoverTab(ctk.CTkFrame):
         ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
         label.configure(image=ctk_img, text="")
         label._ctk_img = ctk_img
+
+    def _clear(self):
+        """Clear input and result so user can load a new image."""
+        self.input_path = None
+        self.result_image = None
+        self.file_label.configure(text="No image selected")
+        self.remove_btn.configure(state="disabled")
+        self.save_btn.configure(state="disabled")
+        self.status.configure(text="Ready")
+        self.orig_preview.configure(image=None, text="")
+        self.result_preview.configure(image=None, text="")
+        if hasattr(self.orig_preview, "_ctk_img"):
+            self.orig_preview._ctk_img = None
+        if hasattr(self.result_preview, "_ctk_img"):
+            self.result_preview._ctk_img = None
 
     def _select(self):
         path = filedialog.askopenfilename(filetypes=[("Images", "*.png *.jpg *.jpeg *.webp *.bmp")])

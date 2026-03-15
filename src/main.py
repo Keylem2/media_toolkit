@@ -144,6 +144,7 @@ from tabs.video_compressor_tab import VideoCompressorTab
 _set_splash_status(_next_msg())
 _splash_delay()
 from tabs.image_compressor_tab import ImageCompressorTab
+import settings as app_settings
 
 
 def _icon_path():
@@ -165,14 +166,17 @@ class MediaToolkit(ctk.CTk):
 
         self._set_window_icon()
 
-        ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+        try:
+            ctk.set_appearance_mode(app_settings.get_theme())
+        except Exception:
+            ctk.set_appearance_mode("dark")
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # ── Sidebar ──
-        self.sidebar = ctk.CTkFrame(self, width=230, corner_radius=0, fg_color=("gray86", "gray14"))
+        # ── Sidebar (minimal right border via separator) ──
+        self.sidebar = ctk.CTkFrame(self, width=230, corner_radius=0, fg_color=("gray86", "gray14"), border_width=(0, 1), border_color=("gray70", "gray25"))
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
         self.sidebar.grid_rowconfigure(10, weight=1)
@@ -224,6 +228,14 @@ class MediaToolkit(ctk.CTk):
             btn.grid(row=3 + i, column=0, padx=12, pady=3, sticky="ew")
             self.nav_buttons.append(btn)
 
+        ctk.CTkButton(
+            self.sidebar, text="  ⚙ Settings", height=38,
+            font=ctk.CTkFont(size=13), anchor="w",
+            command=self._open_settings,
+            fg_color="transparent", text_color=("gray10", "gray90"),
+            hover_color=("gray78", "gray25"), corner_radius=8,
+        ).grid(row=9, column=0, padx=12, pady=(8, 4), sticky="ew")
+
         # Create all tabs: on first launch show each message for same duration; 2nd+ just go
         for i, (label, factory) in enumerate(self.tab_defs):
             _set_splash_status(_next_msg())
@@ -232,7 +244,7 @@ class MediaToolkit(ctk.CTk):
             self.tab_frames[i] = factory()
 
         version_label = ctk.CTkLabel(
-            self.sidebar, text="v1.0  •  FFmpeg powered",
+            self.sidebar, text="v1.0.1  •  FFmpeg powered",
             font=ctk.CTkFont(size=11), text_color="gray45",
         )
         version_label.grid(row=11, column=0, padx=20, pady=(0, 4), sticky="sw")
@@ -282,6 +294,56 @@ class MediaToolkit(ctk.CTk):
                 self._do_set_icon(path)
         except Exception:
             pass
+
+    def _open_settings(self):
+        from tkinter import filedialog
+        win = ctk.CTkToplevel(self)
+        win.title("Settings")
+        win.geometry("440x320")
+        win.transient(self)
+        win.grab_set()
+
+        row = 0
+        ctk.CTkLabel(win, text="Default output folder", font=ctk.CTkFont(size=13, weight="bold")).grid(row=row, column=0, sticky="w", padx=20, pady=(20, 4))
+        row += 1
+        folder_var = ctk.StringVar(value=app_settings.get_default_output_folder())
+        folder_frame = ctk.CTkFrame(win, fg_color="transparent")
+        folder_frame.grid(row=row, column=0, sticky="ew", padx=20, pady=(0, 16))
+        folder_frame.grid_columnconfigure(0, weight=1)
+        folder_entry = ctk.CTkEntry(folder_frame, textvariable=folder_var, height=36, font=ctk.CTkFont(size=12))
+        folder_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        def _browse_folder():
+            d = filedialog.askdirectory(initialdir=folder_var.get())
+            if d:
+                folder_var.set(d)
+        ctk.CTkButton(folder_frame, text="Browse", width=90, height=36, command=_browse_folder).grid(row=0, column=1)
+        row += 1
+
+        ctk.CTkLabel(win, text="Theme", font=ctk.CTkFont(size=13, weight="bold")).grid(row=row, column=0, sticky="w", padx=20, pady=(0, 4))
+        row += 1
+        theme_var = ctk.StringVar(value=app_settings.get_theme().capitalize())
+        theme_menu = ctk.CTkOptionMenu(win, variable=theme_var, values=["Dark", "Light", "System"], height=34, width=160)
+        theme_menu.grid(row=row, column=0, sticky="w", padx=20, pady=(0, 16))
+        row += 1
+
+        def _check_updates():
+            has_newer, tag = app_settings.check_for_updates()
+            if has_newer and tag:
+                webbrowser.open("https://github.com/Keylem2/media_toolkit/releases")
+                messagebox.showinfo("Update available", f"New version {tag} is available.\nOpening GitHub Releases in your browser.", parent=win)
+            else:
+                messagebox.showinfo("Up to date", f"You're on the latest version (v{app_settings.APP_VERSION}).", parent=win)
+        ctk.CTkButton(win, text="Check for updates", height=36, command=_check_updates).grid(row=row, column=0, sticky="w", padx=20, pady=(0, 8))
+        row += 1
+
+        def _save():
+            app_settings.set_default_output_folder(folder_var.get().strip())
+            t = theme_var.get().lower()
+            app_settings.set_theme(t)
+            ctk.set_appearance_mode(t)
+            messagebox.showinfo("Settings", "Settings saved.", parent=win)
+            win.destroy()
+        ctk.CTkButton(win, text="Save", height=40, width=120, command=_save).grid(row=row, column=0, padx=20, pady=(24, 20))
 
     def select_tab(self, index):
         if index == self.current_tab_idx:
