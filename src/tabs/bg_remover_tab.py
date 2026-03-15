@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import queue
 import threading
 import os
 import io
@@ -76,6 +77,22 @@ class BGRemoverTab(ctk.CTkFrame):
         self.status = ctk.CTkLabel(self, text="Ready", font=ctk.CTkFont(size=12), text_color="gray55")
         self.status.grid(row=6, column=0, sticky="w", pady=(8, 0))
 
+        self._ui_queue = queue.Queue()
+        self.after(100, self._process_ui_queue)
+
+    def _process_ui_queue(self):
+        try:
+            while True:
+                cb, args, kwargs = self._ui_queue.get_nowait()
+                try:
+                    cb(*args, **kwargs)
+                except Exception:
+                    pass
+        except queue.Empty:
+            pass
+        if self.winfo_exists():
+            self.after(100, self._process_ui_queue)
+
     def _show_preview(self, source, label, max_px=320):
         img = Image.open(source) if isinstance(source, str) else source.copy()
         img.thumbnail((max_px, max_px), Image.LANCZOS)
@@ -115,15 +132,18 @@ class BGRemoverTab(ctk.CTkFrame):
     def _start_removal(self):
         self.remove_btn.configure(state="disabled", text="Processing...")
         self.status.configure(text="Removing background... (first run downloads model ~170 MB)")
-        threading.Thread(target=self._remove, daemon=True).start()
+        input_path = self.input_path
+        threading.Thread(target=self._remove, args=(input_path,), daemon=True).start()
 
-    def _remove(self):
+    def _remove(self, input_path):
         try:
-            with open(self.input_path, "rb") as f:
+            with open(input_path, "rb") as f:
                 data = f.read()
-            
-            # Attempt background removal with progress feedback
-            self.status.configure(text="Loading AI model... (~170 MB on first run)")
+
+            def set_status(t):
+                self._ui_queue.put((lambda: self.status.configure(text=t), (), {}))
+
+            set_status("Loading AI model... (~170 MB on first run)")
             try:
                 out = remove(data)
             except Exception as model_error:
@@ -135,22 +155,32 @@ class BGRemoverTab(ctk.CTkFrame):
                         f"Error: {model_error}"
                     )
                 raise
-            
+
             if out is None:
                 raise RuntimeError(
                     "Background removal returned empty result. "
                     "This may be due to missing AI model or incompatible image format."
                 )
-            
-            self.result_image = Image.open(io.BytesIO(out)).convert("RGBA")
-            self._show_preview(self.result_image, self.result_preview)
-            self.save_btn.configure(state="normal")
-            self.status.configure(text="Background removed!")
+
+            result_image = Image.open(io.BytesIO(out)).convert("RGBA")
+
+            def on_success():
+                self.result_image = result_image
+                self._show_preview(result_image, self.result_preview)
+                self.save_btn.configure(state="normal")
+                self.status.configure(text="Background removed!")
+            self._ui_queue.put((on_success, (), {}))
         except Exception as e:
-            self.status.configure(text=f"Error: {e}")
-            messagebox.showerror("Background Removal Error", str(e))
+            err_msg = str(e)
+
+            def on_error():
+                self.status.configure(text=f"Error: {err_msg}")
+                messagebox.showerror("Background Removal Error", err_msg, parent=self.winfo_toplevel())
+            self._ui_queue.put((on_error, (), {}))
         finally:
-            self.remove_btn.configure(state="normal", text="Remove Background")
+            def on_finish():
+                self.remove_btn.configure(state="normal", text="Remove Background")
+            self._ui_queue.put((on_finish, (), {}))
 
     def _save(self):
         if self.result_image is None:

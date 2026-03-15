@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import queue
 import threading
 import os
 import subprocess
@@ -94,6 +95,24 @@ class TikTokTab(ctk.CTkFrame):
         self.status = ctk.CTkLabel(self, text="Ready", font=ctk.CTkFont(size=12), text_color="gray55")
         self.status.grid(row=9, column=0, sticky="w")
 
+        # Queue for thread-safe UI updates (worker thread must not call Tk methods)
+        self._ui_queue = queue.Queue()
+        self.after(100, self._process_ui_queue)
+
+    def _process_ui_queue(self):
+        """Run pending UI updates on the main thread."""
+        try:
+            while True:
+                cb, args, kwargs = self._ui_queue.get_nowait()
+                try:
+                    cb(*args, **kwargs)
+                except Exception:
+                    pass
+        except queue.Empty:
+            pass
+        if self.winfo_exists():
+            self.after(100, self._process_ui_queue)
+
     # ------------------------------------------------------------------
     # FFmpeg / FFprobe location helpers (for PyInstaller bundles)
     # ------------------------------------------------------------------
@@ -169,42 +188,64 @@ class TikTokTab(ctk.CTkFrame):
         self.progress.set(0)
         self.status.configure(text="Starting download...")
 
-        # Disable button and start thread
+        # Disable button and start thread (pass values from main thread to avoid GUI access in worker)
         self.dl_btn.configure(state="disabled", text="Downloading...")
-        threading.Thread(target=self._download, args=(url,), daemon=True).start()
+        fmt = self.format_var.get()
+        out_dir = self.output_var.get()
+        threading.Thread(target=self._download, args=(url, fmt, out_dir), daemon=True).start()
 
-    # --- Thread-safe UI updates ---
+    # --- Thread-safe UI updates (worker enqueues; main thread runs via _process_ui_queue) ---
     def _update_progress(self, value, text=None):
-        self.after(0, lambda: self.progress.set(value))
-        if text is not None:
-            self.after(0, lambda: self.status.configure(text=text))
+        def do():
+            self.progress.set(value)
+            if text is not None:
+                self.status.configure(text=text)
+        self._ui_queue.put((do, (), {}))
 
     def _start_indeterminate(self, text):
-        self.after(0, lambda: self.progress.configure(mode="indeterminate"))
-        self.after(0, lambda: self.progress.start())
-        if text is not None:
-            self.after(0, lambda: self.status.configure(text=text))
+        def do():
+            self.progress.configure(mode="indeterminate")
+            self.progress.start()
+            if text is not None:
+                self.status.configure(text=text)
+        self._ui_queue.put((do, (), {}))
 
     def _stop_indeterminate(self):
-        self.after(0, lambda: self.progress.stop())
-        self.after(0, lambda: self.progress.configure(mode="determinate"))
+        def do():
+            self.progress.stop()
+            self.progress.configure(mode="determinate")
+        self._ui_queue.put((do, (), {}))
 
     def _show_error(self, msg):
-        self.after(0, lambda: messagebox.showerror("Error", msg))
-        self.after(0, lambda: self.status.configure(text=f"Error: {msg}"))
+        def do():
+            messagebox.showerror("Error", msg, parent=self.winfo_toplevel())
+            self.status.configure(text=f"Error: {msg}")
+        self._ui_queue.put((do, (), {}))
 
     def _show_success(self, msg):
-        self.after(0, lambda: messagebox.showinfo("Success", msg))
-        self.after(0, lambda: self.status.configure(text="Download complete!"))
+        def do():
+            messagebox.showinfo("Success", msg, parent=self.winfo_toplevel())
+            self.status.configure(text="Download complete!")
+        self._ui_queue.put((do, (), {}))
 
     def _finish_download(self):
-        self.after(0, lambda: self.dl_btn.configure(state="normal", text="Download"))
+        def do():
+            self.dl_btn.configure(state="normal", text="Download")
+        self._ui_queue.put((do, (), {}))
+
+    def _unique_filename(self, path):
+        """Return path or path (1), path (2), ... if file exists."""
+        if not os.path.exists(path):
+            return path
+        base, ext = os.path.splitext(path)
+        counter = 1
+        while os.path.exists(f"{base} ({counter}){ext}"):
+            counter += 1
+        return f"{base} ({counter}){ext}"
 
     # --- Core download logic ---
-    def _download(self, url):
+    def _download(self, url, fmt, out_dir):
         try:
-            fmt = self.format_var.get()
-            out_dir = self.output_var.get()
             # Use a temporary filename with a placeholder to avoid collisions
             temp_template = os.path.join(out_dir, "%(title)s_%(id)s.%(ext)s")
 
@@ -247,7 +288,7 @@ class TikTokTab(ctk.CTkFrame):
                     video_id = info.get('id', '')
                     safe_title = "".join(c for c in title if c.isalnum() or c in " ._-").rstrip()
                     expected_file = os.path.join(out_dir, f"{safe_title}_{video_id}.mp3")
-                    final_file = unique_filename(expected_file)
+                    final_file = self._unique_filename(expected_file)
                     
                     ydl.download([url])
                     
@@ -276,16 +317,6 @@ class TikTokTab(ctk.CTkFrame):
                 "merge_output_format": "mp4",
             }
 
-            # Helper to generate unique filename if already exists
-            def unique_filename(path):
-                if not os.path.exists(path):
-                    return path
-                base, ext = os.path.splitext(path)
-                counter = 1
-                while os.path.exists(f"{base} ({counter}){ext}"):
-                    counter += 1
-                return f"{base} ({counter}){ext}"
-            
             with yt_dlp.YoutubeDL(opts) as ydl:
                 # Extract info to get the final filename
                 info = ydl.extract_info(url, download=True)
@@ -305,7 +336,7 @@ class TikTokTab(ctk.CTkFrame):
             
             # Handle duplicate filenames - rename if already exists with different path
             if downloaded_file and os.path.exists(downloaded_file):
-                unique_path = unique_filename(downloaded_file)
+                unique_path = self._unique_filename(downloaded_file)
                 if unique_path != downloaded_file:
                     os.rename(downloaded_file, unique_path)
                     downloaded_file = unique_path

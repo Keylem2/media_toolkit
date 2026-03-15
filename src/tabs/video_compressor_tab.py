@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import queue
 import threading
 import subprocess
 import os
@@ -91,6 +92,22 @@ class VideoCompressorTab(ctk.CTkFrame):
         self.status = ctk.CTkLabel(self, text="Ready", font=ctk.CTkFont(size=12), text_color="gray55")
         self.status.grid(row=11, column=0, sticky="w")
 
+        self._ui_queue = queue.Queue()
+        self.after(100, self._process_ui_queue)
+
+    def _process_ui_queue(self):
+        try:
+            while True:
+                cb, args, kwargs = self._ui_queue.get_nowait()
+                try:
+                    cb(*args, **kwargs)
+                except Exception:
+                    pass
+        except queue.Empty:
+            pass
+        if self.winfo_exists():
+            self.after(100, self._process_ui_queue)
+
     # ── helpers ──
 
     def _find_executable(self, name):
@@ -165,11 +182,19 @@ class VideoCompressorTab(ctk.CTkFrame):
         self.compress_btn.configure(state="disabled", text="Compressing...")
         self.progress.set(0)
         self.status.configure(text="Preparing...")
-        threading.Thread(target=self._compress, args=(target_mb,), daemon=True).start()
+        input_path = self.input_path
+        duration = self.duration or self._get_duration(input_path)
+        out_dir = self.output_var.get()
+        ffmpeg_path = self.ffmpeg_path
+        threading.Thread(
+            target=self._compress,
+            args=(target_mb, input_path, duration, out_dir, ffmpeg_path),
+            daemon=True,
+        ).start()
 
-    def _compress(self, target_mb):
+    def _compress(self, target_mb, input_path, duration, out_dir, ffmpeg_path):
         try:
-            duration = self.duration or self._get_duration(self.input_path)
+            duration = duration or self._get_duration(input_path)
             if not duration:
                 raise RuntimeError("Cannot determine video duration.")
 
@@ -185,19 +210,25 @@ class VideoCompressorTab(ctk.CTkFrame):
                     "Try a larger target or trim the video."
                 )
 
-            basename = os.path.splitext(os.path.basename(self.input_path))[0]
-            output_path = os.path.join(self.output_var.get(), f"{basename}_compressed.mp4")
-            passlog = os.path.join(self.output_var.get(), f"{basename}_passlog")
+            basename = os.path.splitext(os.path.basename(input_path))[0]
+            output_path = os.path.join(out_dir, f"{basename}_compressed.mp4")
+            passlog = os.path.join(out_dir, f"{basename}_passlog")
 
             null_target = "NUL" if os.name == "nt" else "/dev/null"
             cf = subprocess.CREATE_NO_WINDOW
 
+            def ui_status(text, progress=None):
+                def do():
+                    self.status.configure(text=text)
+                    if progress is not None:
+                        self.progress.set(progress)
+                self._ui_queue.put((do, (), {}))
+
             # Pass 1
-            self.status.configure(text="Pass 1 / 2  —  analyzing...")
-            self.progress.set(0.15)
+            ui_status("Pass 1 / 2  —  analyzing...", 0.15)
             p1 = subprocess.run(
                 [
-                    self.ffmpeg_path, "-y", "-i", self.input_path,
+                    ffmpeg_path, "-y", "-i", input_path,
                     "-c:v", "libx264", "-b:v", str(video_bitrate),
                     "-pass", "1", "-passlogfile", passlog,
                     "-an", "-f", "null", null_target,
@@ -208,11 +239,10 @@ class VideoCompressorTab(ctk.CTkFrame):
                 raise RuntimeError(f"FFmpeg pass 1 failed:\n{p1.stderr[-800:]}")
 
             # Pass 2
-            self.status.configure(text="Pass 2 / 2  —  encoding...")
-            self.progress.set(0.55)
+            ui_status("Pass 2 / 2  —  encoding...", 0.55)
             p2 = subprocess.run(
                 [
-                    self.ffmpeg_path, "-y", "-i", self.input_path,
+                    ffmpeg_path, "-y", "-i", input_path,
                     "-c:v", "libx264", "-b:v", str(video_bitrate),
                     "-pass", "2", "-passlogfile", passlog,
                     "-c:a", "aac", "-b:a", "128k",
@@ -230,12 +260,21 @@ class VideoCompressorTab(ctk.CTkFrame):
                     os.remove(log)
 
             final_mb = os.path.getsize(output_path) / (1024 * 1024)
-            self.progress.set(1.0)
-            self.status.configure(text=f"Done!  Final size: {final_mb:.2f} MB")
-            messagebox.showinfo("Success", f"Compressed to {final_mb:.2f} MB\n\nSaved:\n{output_path}")
+
+            def on_success():
+                self.progress.set(1.0)
+                self.status.configure(text=f"Done!  Final size: {final_mb:.2f} MB")
+                messagebox.showinfo("Success", f"Compressed to {final_mb:.2f} MB\n\nSaved:\n{output_path}", parent=self.winfo_toplevel())
+            self._ui_queue.put((on_success, (), {}))
 
         except Exception as e:
-            self.status.configure(text=f"Error: {e}")
-            messagebox.showerror("Compression Error", str(e))
+            err_msg = str(e)
+
+            def on_error():
+                self.status.configure(text=f"Error: {err_msg}")
+                messagebox.showerror("Compression Error", err_msg, parent=self.winfo_toplevel())
+            self._ui_queue.put((on_error, (), {}))
         finally:
-            self.compress_btn.configure(state="normal", text="Compress")
+            def on_finish():
+                self.compress_btn.configure(state="normal", text="Compress")
+            self._ui_queue.put((on_finish, (), {}))

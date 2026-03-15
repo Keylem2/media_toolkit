@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import queue
 import threading
 import os
 import sys
@@ -25,7 +26,7 @@ class YouTubeTab(ctk.CTkFrame):
             msg = ("FFmpeg not found. Merging video & audio or extracting MP3 will not work.\n"
                    "Download from https://ffmpeg.org and add to PATH or place next to the executable.")
             print(f"Warning: {msg}")
-            self.after(100, lambda: messagebox.showwarning("FFmpeg Missing", msg))
+            self.after(100, lambda: messagebox.showwarning("FFmpeg Missing", msg, parent=self.winfo_toplevel()))
 
         title = ctk.CTkLabel(self, text="YouTube Converter", font=ctk.CTkFont(size=24, weight="bold"))
         title.grid(row=0, column=0, sticky="w", pady=(0, 4))
@@ -110,8 +111,26 @@ class YouTubeTab(ctk.CTkFrame):
         self._last_progress_update = 0
         self._progress_throttle = 0.1  # seconds
 
+        # Queue for thread-safe UI updates (worker must not call Tk methods)
+        self._ui_queue = queue.Queue()
+        self.after(100, self._process_ui_queue)
+
         # Initial state
         self._on_format_change()
+
+    def _process_ui_queue(self):
+        """Run pending UI updates on the main thread."""
+        try:
+            while True:
+                cb, args, kwargs = self._ui_queue.get_nowait()
+                try:
+                    cb(*args, **kwargs)
+                except Exception:
+                    pass
+        except queue.Empty:
+            pass
+        if self.winfo_exists():
+            self.after(100, self._process_ui_queue)
 
     # ------------------------------------------------------------------
     # FFmpeg location helper
@@ -189,48 +208,53 @@ class YouTubeTab(ctk.CTkFrame):
         self.status.configure(text="Starting download...")
         self._last_progress_update = 0  # ensure first hook update isn't throttled
 
-        threading.Thread(target=self._download, args=(url,), daemon=True).start()
+        fmt = self.format_var.get()
+        quality = self.quality_var.get()
+        out_dir = self.output_var.get()
+        threading.Thread(target=self._download, args=(url, fmt, quality, out_dir), daemon=True).start()
 
-    # --- Thread-safe UI updates with throttling ---
+    # --- Thread-safe UI updates via queue (worker enqueues; main runs in _process_ui_queue) ---
     def _update_progress(self, value=None, text=None, force=False):
         """
         Thread‑safe progress/status update with throttling.
         If value is None, the progress bar is not changed.
         If force=True, bypass throttle.
         """
-        if force:
+        def do():
             if value is not None:
-                self.after(0, lambda: self.progress.set(value))
+                self.progress.set(value)
             if text is not None:
-                self.after(0, lambda: self.status.configure(text=text))
+                self.status.configure(text=text)
+
+        if force:
+            self._ui_queue.put((do, (), {}))
             return
 
         now = time.time()
         if now - self._last_progress_update > self._progress_throttle:
             self._last_progress_update = now
-            if value is not None:
-                self.after(0, lambda: self.progress.set(value))
-            if text is not None:
-                self.after(0, lambda: self.status.configure(text=text))
+            self._ui_queue.put((do, (), {}))
 
     def _show_error(self, msg):
-        self.after(0, lambda: messagebox.showerror("Error", msg))
-        self.after(0, lambda: self.status.configure(text=f"Error: {msg}"))
+        def do():
+            messagebox.showerror("Error", msg, parent=self.winfo_toplevel())
+            self.status.configure(text=f"Error: {msg}")
+        self._ui_queue.put((do, (), {}))
 
     def _show_success(self, msg):
-        self.after(0, lambda: messagebox.showinfo("Success", msg))
-        self.after(0, lambda: self.status.configure(text="Download complete!"))
+        def do():
+            messagebox.showinfo("Success", msg, parent=self.winfo_toplevel())
+            self.status.configure(text="Download complete!")
+        self._ui_queue.put((do, (), {}))
 
     def _finish_download(self):
-        self.after(0, lambda: self.dl_btn.configure(state="normal", text="Download"))
+        def do():
+            self.dl_btn.configure(state="normal", text="Download")
+        self._ui_queue.put((do, (), {}))
 
     # --- Core download logic ---
-    def _download(self, url):
+    def _download(self, url, fmt, quality, out_dir):
         try:
-            fmt = self.format_var.get()
-            quality = self.quality_var.get()
-            out_dir = self.output_var.get()
-
             # Use template with video ID, add counter if file already exists
             outtmpl = os.path.join(out_dir, "%(title)s_%(id)s.%(ext)s")
             

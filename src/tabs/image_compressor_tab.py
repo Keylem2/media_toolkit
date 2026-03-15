@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import queue
 import threading
 import os
 from tkinter import filedialog, messagebox
@@ -88,6 +89,22 @@ class ImageCompressorTab(ctk.CTkFrame):
         self.status = ctk.CTkLabel(self, text="Ready", font=ctk.CTkFont(size=12), text_color="gray55")
         self.status.grid(row=12, column=0, sticky="w")
 
+        self._ui_queue = queue.Queue()
+        self.after(100, self._process_ui_queue)
+
+    def _process_ui_queue(self):
+        try:
+            while True:
+                cb, args, kwargs = self._ui_queue.get_nowait()
+                try:
+                    cb(*args, **kwargs)
+                except Exception:
+                    pass
+        except queue.Empty:
+            pass
+        if self.winfo_exists():
+            self.after(100, self._process_ui_queue)
+
     # ── helpers ──
 
     def _on_slide(self, value):
@@ -126,21 +143,23 @@ class ImageCompressorTab(ctk.CTkFrame):
         if not self.input_path:
             return
         self.compress_btn.configure(state="disabled", text="Compressing...")
-        threading.Thread(target=self._compress, daemon=True).start()
+        input_path = self.input_path
+        quality = self.quality_var.get()
+        fmt = self.fmt_var.get()
+        out_dir = self.output_var.get()
+        threading.Thread(target=self._compress, args=(input_path, quality, fmt, out_dir), daemon=True).start()
 
-    def _compress(self):
+    def _compress(self, input_path, quality, fmt, out_dir):
         try:
-            quality = self.quality_var.get()
-            fmt = self.fmt_var.get()
-            img = Image.open(self.input_path)
+            img = Image.open(input_path)
 
-            basename = os.path.splitext(os.path.basename(self.input_path))[0]
-            input_ext = os.path.splitext(self.input_path)[1].lower()
+            basename = os.path.splitext(os.path.basename(input_path))[0]
+            input_ext = os.path.splitext(input_path)[1].lower()
 
             ext_map = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}
             ext = ext_map.get(fmt, input_ext) if fmt != "Same as input" else input_ext
 
-            output_path = os.path.join(self.output_var.get(), f"{basename}_compressed{ext}")
+            output_path = os.path.join(out_dir, f"{basename}_compressed{ext}")
 
             if ext in (".jpg", ".jpeg"):
                 if img.mode in ("RGBA", "P"):
@@ -156,18 +175,28 @@ class ImageCompressorTab(ctk.CTkFrame):
                     img = img.convert("RGB")
                 img.save(output_path, quality=quality, optimize=True)
 
-            orig_kb = os.path.getsize(self.input_path) / 1024
+            orig_kb = os.path.getsize(input_path) / 1024
             final_kb = os.path.getsize(output_path) / 1024
             final_str = f"{final_kb / 1024:.1f} MB" if final_kb >= 1024 else f"{final_kb:.0f} KB"
             reduction = ((orig_kb - final_kb) / orig_kb) * 100 if orig_kb > 0 else 0
 
-            self.status.configure(text=f"Done!  {final_str}  ({reduction:.0f}% smaller)")
-            messagebox.showinfo(
-                "Success",
-                f"Compressed to {final_str}  ({reduction:.0f}% reduction)\n\nSaved:\n{output_path}",
-            )
+            def on_success():
+                self.status.configure(text=f"Done!  {final_str}  ({reduction:.0f}% smaller)")
+                messagebox.showinfo(
+                    "Success",
+                    f"Compressed to {final_str}  ({reduction:.0f}% reduction)\n\nSaved:\n{output_path}",
+                    parent=self.winfo_toplevel(),
+                )
+            self._ui_queue.put((on_success, (), {}))
+
         except Exception as e:
-            self.status.configure(text=f"Error: {e}")
-            messagebox.showerror("Compression Error", str(e))
+            err_msg = str(e)
+
+            def on_error():
+                self.status.configure(text=f"Error: {err_msg}")
+                messagebox.showerror("Compression Error", err_msg, parent=self.winfo_toplevel())
+            self._ui_queue.put((on_error, (), {}))
         finally:
-            self.compress_btn.configure(state="normal", text="Compress")
+            def on_finish():
+                self.compress_btn.configure(state="normal", text="Compress")
+            self._ui_queue.put((on_finish, (), {}))
