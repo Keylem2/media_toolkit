@@ -1,8 +1,59 @@
 import sys
 import os
+import tkinter as tk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Show splash screen immediately before heavy imports
+_splash = None
+_splash_status = None
+
+def _show_splash():
+    global _splash, _splash_status
+    try:
+        splash = tk.Tk()
+        splash.overrideredirect(True)
+        splash.attributes('-topmost', True)
+        
+        # Center on screen
+        w, h = 400, 220
+        sw, sh = splash.winfo_screenwidth(), splash.winfo_screenheight()
+        x, y = (sw - w) // 2, (sh - h) // 2
+        splash.geometry(f"{w}x{h}+{x}+{y}")
+        
+        # Dark theme matching app
+        splash.configure(bg='#2b2b2b')
+        
+        tk.Label(splash, text="Media Toolkit", font=('Segoe UI', 24, 'bold'), 
+                bg='#2b2b2b', fg='white').pack(expand=True, pady=(20, 5))
+        status_lbl = tk.Label(splash, text="Loading...", 
+                font=('Segoe UI', 12), bg='#2b2b2b', fg='gray70')
+        status_lbl.pack(expand=True)
+        _splash_status = status_lbl
+        tk.Label(splash, text="First launch may take a moment", 
+                font=('Segoe UI', 9), bg='#2b2b2b', fg='gray50').pack(expand=True, pady=(0, 20))
+        
+        splash.update()
+        _splash = splash
+    except Exception:
+        pass
+    return _splash
+
+def _set_splash_status(msg):
+    """Update the splash status text so the user sees progress."""
+    global _splash, _splash_status
+    try:
+        if _splash_status is not None:
+            _splash_status.config(text=msg)
+        if _splash is not None:
+            _splash.update()
+    except Exception:
+        pass
+
+# Show splash immediately
+_splash = _show_splash()
+
+# Now do heavy imports while splash is visible
 import customtkinter as ctk
 
 from tabs.youtube_tab import YouTubeTab
@@ -19,29 +70,9 @@ class MediaToolkit(ctk.CTk):
         self.title("Media Toolkit")
         self.geometry("1000x660")
         self.minsize(960, 620)
-        
-        # Set window icon for taskbar and title bar
-        self._set_window_icon()
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
-    
-    def _set_window_icon(self):
-        """Set the window icon for taskbar and title bar."""
-        try:
-            if getattr(sys, 'frozen', False):
-                # Running as PyInstaller bundle
-                base_path = sys._MEIPASS
-            else:
-                # Running from source
-                base_path = os.path.dirname(os.path.abspath(__file__))
-            
-            icon_path = os.path.join(base_path, "media_toolkit.ico")
-            if os.path.exists(icon_path):
-                self.iconbitmap(icon_path)
-        except Exception:
-            # If icon fails to load, app still works
-            pass
 
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -67,16 +98,17 @@ class MediaToolkit(ctk.CTk):
         sep = ctk.CTkFrame(self.sidebar, height=1, fg_color="gray30")
         sep.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 12))
 
+        # Tab definitions - all loaded at startup (splash screen covers the wait)
         self.tab_defs = [
-            ("  YouTube Converter", YouTubeTab),
-            ("  TikTok Converter", TikTokTab),
-            ("  Background Remover", BGRemoverTab),
-            ("  Video Compressor", VideoCompressorTab),
-            ("  Image Compressor", ImageCompressorTab),
+            ("  YouTube Converter", lambda: YouTubeTab(self.content)),
+            ("  TikTok Converter", lambda: TikTokTab(self.content)),
+            ("  Background Remover", lambda: BGRemoverTab(self.content)),
+            ("  Video Compressor", lambda: VideoCompressorTab(self.content)),
+            ("  Image Compressor", lambda: ImageCompressorTab(self.content)),
         ]
 
         self.nav_buttons = []
-        self.tab_frames = []
+        self.tab_frames = [None] * len(self.tab_defs)
 
         # Content area
         self.content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -84,7 +116,7 @@ class MediaToolkit(ctk.CTk):
         self.content.grid_columnconfigure(0, weight=1)
         self.content.grid_rowconfigure(0, weight=1)
 
-        for i, (label, TabClass) in enumerate(self.tab_defs):
+        for i, (label, factory) in enumerate(self.tab_defs):
             btn = ctk.CTkButton(
                 self.sidebar, text=label, height=42,
                 font=ctk.CTkFont(size=14),
@@ -98,8 +130,11 @@ class MediaToolkit(ctk.CTk):
             btn.grid(row=3 + i, column=0, padx=12, pady=3, sticky="ew")
             self.nav_buttons.append(btn)
 
-            frame = TabClass(self.content)
-            self.tab_frames.append(frame)
+        # Create all tabs at startup (splash shows progress for each)
+        for i, (label, factory) in enumerate(self.tab_defs):
+            tab_name = label.strip()
+            _set_splash_status(f"Preparing {tab_name}...")
+            self.tab_frames[i] = factory()
 
         version_label = ctk.CTkLabel(
             self.sidebar, text="v1.0  •  FFmpeg powered",
@@ -131,4 +166,13 @@ class MediaToolkit(ctk.CTk):
 
 if __name__ == "__main__":
     app = MediaToolkit()
+    
+    _set_splash_status("Opening Media Toolkit...")
+    # Close splash screen when app is ready
+    if '_splash' in globals() and _splash is not None:
+        try:
+            _splash.destroy()
+        except Exception:
+            pass
+    
     app.mainloop()
