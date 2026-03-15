@@ -54,3 +54,7 @@ If you want to hack on the code or run without installing:
 - **`README.md`** — This file
 
 Installers and releases are published on the [Releases](https://github.com/Keylem2/media_toolkit/releases) page.
+
+---
+
+**Like Media Toolkit?** If you find it useful, you can support the project: [PayPal.Me](https://paypal.me/keylem). Totally optional — the app is free either way.

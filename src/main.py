@@ -1,11 +1,12 @@
 import sys
 import os
 import time
+import webbrowser
 import tkinter as tk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Messages shown on splash (same duration each, for show)
+# Messages shown on splash (same duration each, for show — first launch only)
 _SPLASH_MESSAGES = [
     "Loading...",
     "Loading interface...",
@@ -22,14 +23,42 @@ _SPLASH_MESSAGES = [
     "Preparing Image Compressor...",
     "Almost ready...",
 ]
-_SPLASH_MSG_DURATION = 1.2  # seconds per message (for show, so user sees rotation)
+_SPLASH_MSG_DURATION = 1.2  # seconds per message (first launch only)
+
+
+def _first_run_file():
+    """Path to a sentinel file that marks 'first run done' (so 2nd+ launch is fast)."""
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+        folder = os.path.join(base, "Media Toolkit")
+    else:
+        folder = os.path.dirname(os.path.abspath(__file__))
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except Exception:
+        folder = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(folder, ".first_run_done")
+
+
+def _is_first_launch():
+    return not os.path.isfile(_first_run_file())
+
+
+def _mark_first_run_done():
+    try:
+        with open(_first_run_file(), "w"):
+            pass
+    except Exception:
+        pass
+
 
 # Show splash screen immediately before heavy imports
 _splash = None
 _splash_status = None
+_splash_subtitle = None  # "First launch may take a moment" — only on first run
 
-def _show_splash():
-    global _splash, _splash_status
+def _show_splash(first_launch):
+    global _splash, _splash_status, _splash_subtitle
     try:
         splash = tk.Tk()
         splash.overrideredirect(True)
@@ -50,8 +79,11 @@ def _show_splash():
                 font=('Segoe UI', 12), bg='#2b2b2b', fg='gray70')
         status_lbl.pack(expand=True)
         _splash_status = status_lbl
-        tk.Label(splash, text="First launch may take a moment", 
-                font=('Segoe UI', 9), bg='#2b2b2b', fg='gray50').pack(expand=True, pady=(0, 20))
+        sub_text = "First launch may take a moment" if first_launch else ""
+        sub_lbl = tk.Label(splash, text=sub_text, 
+                font=('Segoe UI', 9), bg='#2b2b2b', fg='gray50')
+        sub_lbl.pack(expand=True, pady=(0, 20))
+        _splash_subtitle = sub_lbl
         
         splash.update()
         _splash = splash
@@ -71,41 +103,46 @@ def _set_splash_status(msg):
         pass
 
 
-# Show splash immediately
-_splash = _show_splash()
-_msg_idx = [0]  # mutable so we can advance
+# First launch = show "First launch may take a moment" and fixed delays; 2nd+ = fast, no delays
+_first_launch = _is_first_launch()
+_splash = _show_splash(_first_launch)
+_msg_idx = [0]
 
 def _next_msg():
     i = _msg_idx[0] % len(_SPLASH_MESSAGES)
     _msg_idx[0] += 1
     return _SPLASH_MESSAGES[i]
 
-# Heavy imports: show a message for a fixed time before each, so user sees rotation
-_set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+def _splash_delay():
+    """Only wait on first launch; 2nd+ launch stays fast."""
+    if _first_launch:
+        time.sleep(_SPLASH_MSG_DURATION)
 
+# Heavy imports: on first launch show each message for fixed time; on 2nd+ just update and go
 _set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+_splash_delay()
+_set_splash_status(_next_msg())
+_splash_delay()
 import customtkinter as ctk
 
 _set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+_splash_delay()
 from tabs.youtube_tab import YouTubeTab
 
 _set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+_splash_delay()
 from tabs.tiktok_tab import TikTokTab
 
 _set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+_splash_delay()
 from tabs.bg_remover_tab import BGRemoverTab
 
 _set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+_splash_delay()
 from tabs.video_compressor_tab import VideoCompressorTab
 
 _set_splash_status(_next_msg())
-time.sleep(_SPLASH_MSG_DURATION)
+_splash_delay()
 from tabs.image_compressor_tab import ImageCompressorTab
 
 
@@ -187,17 +224,30 @@ class MediaToolkit(ctk.CTk):
             btn.grid(row=3 + i, column=0, padx=12, pady=3, sticky="ew")
             self.nav_buttons.append(btn)
 
-        # Create all tabs: show each message for same duration so user sees it
+        # Create all tabs: on first launch show each message for same duration; 2nd+ just go
         for i, (label, factory) in enumerate(self.tab_defs):
             _set_splash_status(_next_msg())
-            time.sleep(_SPLASH_MSG_DURATION)
+            if _first_launch:
+                time.sleep(_SPLASH_MSG_DURATION)
             self.tab_frames[i] = factory()
 
         version_label = ctk.CTkLabel(
             self.sidebar, text="v1.0  •  FFmpeg powered",
             font=ctk.CTkFont(size=11), text_color="gray45",
         )
-        version_label.grid(row=11, column=0, padx=20, pady=(0, 16), sticky="sw")
+        version_label.grid(row=11, column=0, padx=20, pady=(0, 4), sticky="sw")
+
+        donation_url = "https://paypal.me/keylem"
+        ctk.CTkLabel(
+            self.sidebar, text="If you find this useful, you can support the project:",
+            font=ctk.CTkFont(size=10), text_color="gray50", wraplength=190,
+        ).grid(row=12, column=0, padx=20, pady=(0, 2), sticky="sw")
+        ctk.CTkButton(
+            self.sidebar, text="PayPal.Me", font=ctk.CTkFont(size=10),
+            fg_color="transparent", text_color=("gray40", "gray60"),
+            hover_color=("gray75", "gray30"), cursor="hand2",
+            command=lambda: webbrowser.open(donation_url),
+        ).grid(row=13, column=0, padx=20, pady=(0, 16), sticky="sw")
 
         self.current_tab_idx = -1
         self.select_tab(0)
@@ -256,6 +306,8 @@ if __name__ == "__main__":
     app = MediaToolkit()
     
     _set_splash_status("Opening Media Toolkit...")
+    if _first_launch:
+        _mark_first_run_done()  # next launch will be fast
     # Close splash screen when app is ready
     if '_splash' in globals() and _splash is not None:
         try:
