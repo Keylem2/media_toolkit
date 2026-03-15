@@ -8,7 +8,7 @@ Open-source desktop app for downloading and processing media from YouTube, TikTo
 
 ## Get the app (recommended)
 
-**→ [Download the installer](https://github.com/Keylem2/media_toolkit/releases)** — pick the latest release and grab `MediaToolkit-Setup.exe`.
+**→ [Download the installer](https://github.com/Keylem2/media_toolkit/releases)** — pick the latest release and grab the setup .exe (e.g. `MediaToolkit-Setup-1.0.1.exe`).
 
 - **Standalone.** Run the installer and you’re done. No Python, FFmpeg, or anything else to install.
 - Launch **Media Toolkit** from the Start Menu or desktop shortcut.
