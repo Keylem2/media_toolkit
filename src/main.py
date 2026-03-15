@@ -1,8 +1,28 @@
 import sys
 import os
+import time
 import tkinter as tk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Messages shown on splash (same duration each, for show)
+_SPLASH_MESSAGES = [
+    "Loading...",
+    "Loading interface...",
+    "Loading YouTube...",
+    "Loading TikTok...",
+    "Loading Background Remover...",
+    "Loading Video Compressor...",
+    "Loading Image Compressor...",
+    "Preparing interface...",
+    "Preparing YouTube...",
+    "Preparing TikTok...",
+    "Preparing Background Remover...",
+    "Preparing Video Compressor...",
+    "Preparing Image Compressor...",
+    "Almost ready...",
+]
+_SPLASH_MSG_DURATION = 1.2  # seconds per message (for show, so user sees rotation)
 
 # Show splash screen immediately before heavy imports
 _splash = None
@@ -50,16 +70,42 @@ def _set_splash_status(msg):
     except Exception:
         pass
 
+
 # Show splash immediately
 _splash = _show_splash()
+_msg_idx = [0]  # mutable so we can advance
 
-# Now do heavy imports while splash is visible
+def _next_msg():
+    i = _msg_idx[0] % len(_SPLASH_MESSAGES)
+    _msg_idx[0] += 1
+    return _SPLASH_MESSAGES[i]
+
+# Heavy imports: show a message for a fixed time before each, so user sees rotation
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
+
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
 import customtkinter as ctk
 
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
 from tabs.youtube_tab import YouTubeTab
+
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
 from tabs.tiktok_tab import TikTokTab
+
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
 from tabs.bg_remover_tab import BGRemoverTab
+
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
 from tabs.video_compressor_tab import VideoCompressorTab
+
+_set_splash_status(_next_msg())
+time.sleep(_SPLASH_MSG_DURATION)
 from tabs.image_compressor_tab import ImageCompressorTab
 
 
@@ -141,10 +187,10 @@ class MediaToolkit(ctk.CTk):
             btn.grid(row=3 + i, column=0, padx=12, pady=3, sticky="ew")
             self.nav_buttons.append(btn)
 
-        # Create all tabs at startup (splash shows progress for each)
+        # Create all tabs: show each message for same duration so user sees it
         for i, (label, factory) in enumerate(self.tab_defs):
-            tab_name = label.strip()
-            _set_splash_status(f"Preparing {tab_name}...")
+            _set_splash_status(_next_msg())
+            time.sleep(_SPLASH_MSG_DURATION)
             self.tab_frames[i] = factory()
 
         version_label = ctk.CTkLabel(
