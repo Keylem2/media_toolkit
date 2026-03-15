@@ -31,16 +31,19 @@ All in one modern desktop UI.
 
 If you want to hack on the code or run without installing:
 
-1. Install **Python 3.11+** on Windows and ensure `python` is on your PATH.
-2. Clone this repo, then:
+1. Install **Python 3.11+** and **[FFmpeg](https://www.gyan.dev/ffmpeg/builds/)** on Windows; ensure both `python` and `ffmpeg` are on your PATH. *(The app needs FFmpeg for YouTube/TikTok downloads and video compression.)*
+2. Clone this repo and open a terminal in the **`src`** folder (where `requirements.txt` and `main.py` live).
+3. Install dependencies (first time only):
 
    ```bash
-   cd media_toolkit/src
    pip install -r requirements.txt
-   python main.py
    ```
 
-   Or from the project root: run `run.bat`.
+4. Run the app:
+   - From **`src`**: `python main.py`
+   - Or from the **project root**: double‑click `run.bat` (Windows).
+
+   **Windows shortcut:** Double‑click `src/install.bat` once to check Python/FFmpeg and run `pip install -r requirements.txt` for you, then use `run.bat` to start the app.
 
 ---
 
