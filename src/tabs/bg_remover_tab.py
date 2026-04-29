@@ -3,9 +3,10 @@ import queue
 import threading
 import os
 import io
+import traceback
 from tkinter import filedialog, messagebox
 
-from PIL import Image
+from PIL import Image, ImageTk
 from rembg import remove
 
 
@@ -87,18 +88,41 @@ class BGRemoverTab(ctk.CTkFrame):
                 try:
                     cb(*args, **kwargs)
                 except Exception:
-                    pass
+                    # Don't silently swallow UI callback errors; log for debugging.
+                    traceback.print_exc()
         except queue.Empty:
             pass
         if self.winfo_exists():
             self.after(100, self._process_ui_queue)
 
+    def _run_remove_with_timeout(self, data, timeout_seconds=120):
+        """
+        Run rembg.remove with a timeout so first-run model download cannot hang forever.
+        """
+        import concurrent.futures
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(remove, data)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except concurrent.futures.TimeoutError as e:
+            future.cancel()
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise RuntimeError(
+                "Timed out while loading/downloading the AI model. "
+                "Check internet connection and try again."
+            ) from e
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
     def _show_preview(self, source, label, max_px=320):
         img = Image.open(source) if isinstance(source, str) else source.copy()
         img.thumbnail((max_px, max_px), Image.LANCZOS)
-        ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
-        label.configure(image=ctk_img, text="")
-        label._ctk_img = ctk_img
+        # Use ImageTk.PhotoImage with explicit master to avoid
+        # "Too early to create image: no default root window" on some environments.
+        tk_img = ImageTk.PhotoImage(img, master=self.winfo_toplevel())
+        label.configure(image=tk_img, text="")
+        label._tk_img = tk_img
 
     def _clear(self):
         """Clear input and result so user can load a new image."""
@@ -110,10 +134,10 @@ class BGRemoverTab(ctk.CTkFrame):
         self.status.configure(text="Ready")
         self.orig_preview.configure(image=None, text="")
         self.result_preview.configure(image=None, text="")
-        if hasattr(self.orig_preview, "_ctk_img"):
-            self.orig_preview._ctk_img = None
-        if hasattr(self.result_preview, "_ctk_img"):
-            self.result_preview._ctk_img = None
+        if hasattr(self.orig_preview, "_tk_img"):
+            self.orig_preview._tk_img = None
+        if hasattr(self.result_preview, "_tk_img"):
+            self.result_preview._tk_img = None
 
     def _select(self):
         path = filedialog.askopenfilename(filetypes=[("Images", "*.png *.jpg *.jpeg *.webp *.bmp")])
@@ -145,7 +169,7 @@ class BGRemoverTab(ctk.CTkFrame):
 
             set_status("Loading AI model... (~170 MB on first run)")
             try:
-                out = remove(data)
+                out = self._run_remove_with_timeout(data, timeout_seconds=120)
             except Exception as model_error:
                 error_msg = str(model_error).lower()
                 if "download" in error_msg or "url" in error_msg or "network" in error_msg or "connection" in error_msg:

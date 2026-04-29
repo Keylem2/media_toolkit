@@ -274,7 +274,9 @@ class TikTokTab(ctk.CTkFrame):
             if fmt == "mp3":
                 opts = {
                     **base_opts,
-                    "format": "ba[has_watermark=false]/ba",
+                    # Some TikTok extract responses do not expose has_watermark on audio-only formats.
+                    # Use broad bestaudio fallbacks to avoid "Requested format is not available".
+                    "format": "ba[has_watermark=false]/bestaudio/ba/best",
                     "postprocessors": [{
                         "key": "FFmpegExtractAudio",
                         "preferredcodec": "mp3",
