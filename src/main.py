@@ -240,7 +240,7 @@ class MediaToolkit(ctk.CTk):
             self.tab_frames[i] = factory()
 
         version_label = ctk.CTkLabel(
-            self.sidebar, text="v1.0.1  •  FFmpeg powered",
+            self.sidebar, text="v1.1.0  •  FFmpeg powered",
             font=ctk.CTkFont(size=11), text_color="gray45",
         )
         version_label.grid(row=10, column=0, padx=20, pady=(0, 4), sticky="sw")

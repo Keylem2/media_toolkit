@@ -2,7 +2,7 @@
 
 Open-source desktop app for downloading and processing media from YouTube, TikTok, and local files. **Windows 10/11.**
 
-**Current version: v1.0.1**
+**Current version: v1.1.0**
 
 ---
 
