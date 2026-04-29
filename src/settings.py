@@ -2,8 +2,9 @@
 import os
 import sys
 import json
+import re
 
-APP_VERSION = "1.0.1"  # Bump this with each release
+APP_VERSION = "1.1.0"  # Bump this with each release
 CONFIG_FILENAME = "settings.json"
 
 
@@ -86,26 +87,34 @@ def check_for_updates():
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
-        tag = data.get("tag_name", "")  # e.g. "v1.0.2"
+        tag = data.get("tag_name", "")  # e.g. "v1.0.2" or "v.1.0.2"
         if not tag:
             return False, None
-        # Normalize: strip 'v' and compare
-        remote = tag.lstrip("v").strip()
-        local = APP_VERSION.strip()
-        if remote == local:
+
+        def _parse_version_tuple(version_str):
+            """
+            Parse loose version strings like:
+            - 1.1.0
+            - v1.1.0
+            - v.1.1.0
+            Returns a 3-part tuple: (major, minor, patch), or None.
+            """
+            nums = re.findall(r"\d+", str(version_str))
+            if not nums:
+                return None
+            parts = [int(x) for x in nums[:3]]
+            while len(parts) < 3:
+                parts.append(0)
+            return tuple(parts)
+
+        remote_v = _parse_version_tuple(tag)
+        local_v = _parse_version_tuple(APP_VERSION)
+        if not remote_v or not local_v:
+            # Unknown format: don't force update, but still return tag for info.
             return False, tag
-        # Simple compare: split by . and compare numbers
-        try:
-            r_parts = [int(x) for x in remote.split(".")[:3]]
-            l_parts = [int(x) for x in local.split(".")[:3]]
-            while len(r_parts) < 3:
-                r_parts.append(0)
-            while len(l_parts) < 3:
-                l_parts.append(0)
-            if r_parts > l_parts:
-                return True, tag
-        except (ValueError, IndexError):
-            pass
+
+        if remote_v > local_v:
+            return True, tag
         return False, tag
     except Exception:
         return False, None
