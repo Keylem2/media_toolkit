@@ -4,9 +4,13 @@ import threading
 import os
 import io
 import traceback
+import warnings
 from tkinter import filedialog, messagebox
 
 from PIL import Image, ImageTk
+
+# PhotoImage on CTkLabel is intentional (CTkImage hits "no default root" here); suppress HiDPI nag.
+warnings.filterwarnings("ignore", message=r".*Given image is not CTkImage.*", category=UserWarning)
 from rembg import remove
 
 
@@ -18,6 +22,8 @@ class BGRemoverTab(ctk.CTkFrame):
 
         self.input_path = None
         self.result_image = None
+        # Pin every PhotoImage we create so Tcl names are never invalidated by GC when CTkLabel updates.
+        self._preview_photo_refs = []
 
         title = ctk.CTkLabel(self, text="Background Remover", font=ctk.CTkFont(size=24, weight="bold"))
         title.grid(row=0, column=0, sticky="w", pady=(0, 4))
@@ -41,13 +47,6 @@ class BGRemoverTab(ctk.CTkFrame):
             fg_color="#e74c3c", hover_color="#c0392b",
         )
         self.remove_btn.pack(side="left", padx=(0, 8))
-
-        self.clear_btn = ctk.CTkButton(
-            btn_frame, text="Clear", height=40, width=80,
-            command=self._clear, fg_color=("gray75", "gray28"),
-            hover_color=("gray65", "gray35"),
-        )
-        self.clear_btn.pack(side="left", padx=(0, 8))
 
         self.save_btn = ctk.CTkButton(
             btn_frame, text="Save PNG", height=40, width=120,
@@ -118,40 +117,29 @@ class BGRemoverTab(ctk.CTkFrame):
     def _show_preview(self, source, label, max_px=320):
         img = Image.open(source) if isinstance(source, str) else source.copy()
         img.thumbnail((max_px, max_px), Image.LANCZOS)
-        # Use ImageTk.PhotoImage with explicit master to avoid
-        # "Too early to create image: no default root window" on some environments.
-        tk_img = ImageTk.PhotoImage(img, master=self.winfo_toplevel())
+        master = self.winfo_toplevel()
+        tk_img = ImageTk.PhotoImage(img, master=master)
+        self._preview_photo_refs.append(tk_img)
+        label._preview_photo = tk_img
         label.configure(image=tk_img, text="")
-        label._tk_img = tk_img
-
-    def _clear(self):
-        """Clear input and result so user can load a new image."""
-        self.input_path = None
-        self.result_image = None
-        self.file_label.configure(text="No image selected")
-        self.remove_btn.configure(state="disabled")
-        self.save_btn.configure(state="disabled")
-        self.status.configure(text="Ready")
-        self.orig_preview.configure(image=None, text="")
-        self.result_preview.configure(image=None, text="")
-        if hasattr(self.orig_preview, "_tk_img"):
-            self.orig_preview._tk_img = None
-        if hasattr(self.result_preview, "_tk_img"):
-            self.result_preview._tk_img = None
 
     def _select(self):
         path = filedialog.askopenfilename(filetypes=[("Images", "*.png *.jpg *.jpeg *.webp *.bmp")])
         if not path:
             return
+        # New file = full reset: drop prior result, filename, and status like a fresh pick.
+        self.result_image = None
+        self.save_btn.configure(state="disabled")
+        self.status.configure(text="Ready")
+
+        self.result_preview.configure(image=None, text="")
+
         self.input_path = path
         size_kb = os.path.getsize(path) / 1024
         size_str = f"{size_kb / 1024:.1f} MB" if size_kb >= 1024 else f"{size_kb:.0f} KB"
         self.file_label.configure(text=f"{os.path.basename(path)}  ({size_str})")
         self.remove_btn.configure(state="normal")
-        self.save_btn.configure(state="disabled")
-        self.result_image = None
         self._show_preview(path, self.orig_preview)
-        self.result_preview.configure(image=None, text="")
 
     def _start_removal(self):
         self.remove_btn.configure(state="disabled", text="Processing...")
@@ -189,6 +177,8 @@ class BGRemoverTab(ctk.CTkFrame):
             result_image = Image.open(io.BytesIO(out)).convert("RGBA")
 
             def on_success():
+                if self.input_path != input_path:
+                    return
                 self.result_image = result_image
                 self._show_preview(result_image, self.result_preview)
                 self.save_btn.configure(state="normal")
@@ -203,7 +193,14 @@ class BGRemoverTab(ctk.CTkFrame):
             self._ui_queue.put((on_error, (), {}))
         finally:
             def on_finish():
-                self.remove_btn.configure(state="normal", text="Remove Background")
+                self.remove_btn.configure(text="Remove Background")
+                # One removal per image; re-enable only after user picks a new file (_select).
+                finished_ok = (
+                    self.result_image is not None
+                    and self.input_path == input_path
+                )
+                self.remove_btn.configure(state="disabled" if finished_ok else "normal")
+
             self._ui_queue.put((on_finish, (), {}))
 
     def _save(self):
